@@ -1,0 +1,359 @@
+const { app, BrowserWindow, dialog, ipcMain } = require("electron");
+const fs = require("node:fs");
+const path = require("node:path");
+const net = require("node:net");
+const crypto = require("node:crypto");
+
+app.setAppUserModelId("com.march3d.viewer");
+
+let mainWindow = null;
+let watchedFile = null;
+let watcher = null;
+let watchTimer = null;
+let syncServer = null;
+const syncClients = new Set();
+
+let lastResolvedDrill = null;
+const drillResolveCache = new Map();
+
+function cleanDotsCandidate(value) {
+  if (typeof value !== "string") return null;
+  let candidate = value.trim().replace(/^file:\/\//i, "");
+  try { candidate = decodeURIComponent(candidate); } catch {}
+  candidate = candidate.replace(/^\/+([A-Za-z]:)/, "$1");
+  if (!/\.dots$/i.test(candidate)) return null;
+  return candidate;
+}
+
+async function fileExists(filePath) {
+  try {
+    const stat = await fs.promises.stat(filePath);
+    return stat.isFile();
+  } catch {
+    return false;
+  }
+}
+
+async function findDotsByBasename(baseName) {
+  const key = baseName.toLowerCase();
+  if (drillResolveCache.has(key)) {
+    const cached = drillResolveCache.get(key);
+    if (await fileExists(cached)) return cached;
+    drillResolveCache.delete(key);
+  }
+
+  // File switches normally stay in the same drill folder. Try there before
+  // recursively walking Documents/Desktop/Home, which can pause Electron on
+  // large OneDrive trees when the plugin only reports a basename.
+  if (lastResolvedDrill) {
+    const sibling = path.join(path.dirname(lastResolvedDrill), baseName);
+    if (await fileExists(sibling)) {
+      drillResolveCache.set(key, sibling);
+      return sibling;
+    }
+  }
+
+  if (watchedFile && path.basename(watchedFile).toLowerCase() === key && await fileExists(watchedFile)) {
+    drillResolveCache.set(key, watchedFile);
+    return watchedFile;
+  }
+
+  const roots = [...new Set([
+    app.getPath("documents"),
+    app.getPath("desktop"),
+    app.getPath("downloads"),
+    app.getPath("home"),
+  ].filter(Boolean))];
+  const skipNames = new Set(["node_modules", ".git", "AppData", "Library", ".cache", ".npm", ".pnpm-store"]);
+  const queue = roots.map((root) => ({ dir: root, depth: 0 }));
+  let visited = 0;
+  const maxVisited = 2500;
+
+  while (queue.length && visited < maxVisited) {
+    const { dir, depth } = queue.shift();
+    visited++;
+    let entries;
+    try { entries = await fs.promises.readdir(dir, { withFileTypes: true }); } catch { continue; }
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name.toLowerCase() === key) {
+        const found = path.join(dir, entry.name);
+        drillResolveCache.set(key, found);
+        return found;
+      }
+      if (entry.isDirectory() && depth < 5 && !skipNames.has(entry.name) && !entry.name.startsWith(".")) {
+        queue.push({ dir: path.join(dir, entry.name), depth: depth + 1 });
+      }
+    }
+  }
+  return null;
+}
+
+async function resolveDotsCandidate(value) {
+  const candidate = cleanDotsCandidate(value);
+  if (!candidate) return null;
+  if (path.isAbsolute(candidate) && await fileExists(candidate)) return path.normalize(candidate);
+  return findDotsByBasename(path.basename(candidate));
+}
+
+async function handleSyncMessage(message) {
+  if (!message || typeof message !== "object") return;
+  if (message.type !== "drill-file") {
+    sendToRenderer("openmarch-sync", message);
+    return;
+  }
+
+  const resolved = await resolveDotsCandidate(message.path || message.name);
+  if (!resolved || resolved === lastResolvedDrill) return;
+  lastResolvedDrill = resolved;
+  startFileWatcher(resolved);
+  sendToRenderer("openmarch-sync", {
+    type: "drill-file",
+    path: resolved,
+    name: path.basename(resolved),
+  });
+}
+
+function sendToRenderer(channel, payload) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(channel, payload);
+  }
+}
+
+async function readFileBytes(filePath) {
+  return new Uint8Array(await fs.promises.readFile(filePath));
+}
+
+function startFileWatcher(filePath) {
+  if (watcher) {
+    watcher.close();
+    watcher = null;
+  }
+  watchedFile = filePath;
+
+  watcher = fs.watch(filePath, { persistent: false }, () => {
+    clearTimeout(watchTimer);
+    // Only notify the renderer that the database changed. Do NOT read and
+    // transfer the entire .dots file here: large drills often contain 10-50 MB
+    // of embedded audio, and OpenMarch can touch the SQLite file repeatedly
+    // during one UI edit. Sending the full database for every fs.watch event
+    // was the main cause of the OM-sync freeze.
+    watchTimer = setTimeout(() => {
+      sendToRenderer("dots-file-changed", { path: filePath });
+    }, 350);
+  });
+
+  watcher.on("error", (error) => {
+    console.error("March3D watcher error:", error);
+  });
+}
+
+function websocketAccept(key) {
+  return crypto
+    .createHash("sha1")
+    .update(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
+    .digest("base64");
+}
+
+function parseWebSocketFrames(socket, buffer) {
+  let offset = 0;
+  while (buffer.length - offset >= 2) {
+    const first = buffer[offset];
+    const second = buffer[offset + 1];
+    const opcode = first & 0x0f;
+    const masked = (second & 0x80) !== 0;
+    let length = second & 0x7f;
+    let headerLength = 2;
+
+    if (length === 126) {
+      if (buffer.length - offset < 4) break;
+      length = buffer.readUInt16BE(offset + 2);
+      headerLength = 4;
+    } else if (length === 127) {
+      if (buffer.length - offset < 10) break;
+      const bigLength = buffer.readBigUInt64BE(offset + 2);
+      if (bigLength > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("WebSocket frame too large");
+      length = Number(bigLength);
+      headerLength = 10;
+    }
+
+    const maskLength = masked ? 4 : 0;
+    const total = headerLength + maskLength + length;
+    if (buffer.length - offset < total) break;
+
+    let payload = buffer.subarray(offset + headerLength + maskLength, offset + total);
+    if (masked) {
+      const mask = buffer.subarray(offset + headerLength, offset + headerLength + 4);
+      const decoded = Buffer.alloc(length);
+      for (let i = 0; i < length; i++) decoded[i] = payload[i] ^ mask[i % 4];
+      payload = decoded;
+    }
+
+    if (opcode === 0x1) {
+      try {
+        void handleSyncMessage(JSON.parse(payload.toString("utf8")));
+      } catch (error) {
+        console.error("Invalid OpenMarch sync message", error);
+      }
+    }
+
+    offset += total;
+  }
+
+  return buffer.subarray(offset);
+}
+
+function startSyncServer() {
+  if (syncServer) return;
+
+  syncServer = net.createServer((socket) => {
+    let handshakeComplete = false;
+    let buffer = Buffer.alloc(0);
+
+    socket.on("data", (chunk) => {
+      buffer = Buffer.concat([buffer, chunk]);
+
+      if (!handshakeComplete) {
+        const headerEnd = buffer.indexOf("\r\n\r\n");
+        if (headerEnd === -1) return;
+
+        const headers = buffer.subarray(0, headerEnd).toString("utf8");
+        const match = headers.match(/Sec-WebSocket-Key:\s*(.+)\r\n/i);
+        if (!match) {
+          socket.destroy();
+          return;
+        }
+
+        const accept = websocketAccept(match[1].trim());
+        socket.write(
+          "HTTP/1.1 101 Switching Protocols\r\n" +
+          "Upgrade: websocket\r\n" +
+          "Connection: Upgrade\r\n" +
+          `Sec-WebSocket-Accept: ${accept}\r\n\r\n`,
+        );
+
+        handshakeComplete = true;
+        buffer = buffer.subarray(headerEnd + 4);
+        syncClients.add(socket);
+        sendToRenderer("openmarch-sync", { type: "connection", connected: true });
+      }
+
+      if (handshakeComplete) {
+        try {
+          buffer = parseWebSocketFrames(socket, buffer);
+        } catch (error) {
+          console.error("OpenMarch WebSocket error:", error);
+          socket.destroy();
+        }
+      }
+    });
+
+    socket.on("close", () => {
+      syncClients.delete(socket);
+      if (syncClients.size === 0) {
+        sendToRenderer("openmarch-sync", { type: "connection", connected: false });
+      }
+    });
+
+    socket.on("error", () => {
+      syncClients.delete(socket);
+    });
+  });
+
+  syncServer.listen(27831, "127.0.0.1");
+}
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1500,
+    height: 950,
+    minWidth: 1100,
+    minHeight: 700,
+    backgroundColor: "#111318",
+    icon: path.join(__dirname, "../build/icon.png"),
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: path.join(__dirname, "preload.cjs"),
+    },
+  });
+
+  if (process.env.VITE_DEV_SERVER_URL) {
+    mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
+  } else {
+    mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
+  }
+}
+
+ipcMain.handle("dots:open-synced", async () => {
+  // When OpenMarch is connected, the renderer should never show a file picker.
+  // Return the .dots path that the sync plugin most recently resolved instead.
+  // Re-resolve it in case the file was renamed/moved after the original message.
+  if (!lastResolvedDrill) return null;
+  const resolved = await resolveDotsCandidate(lastResolvedDrill);
+  if (!resolved) return null;
+  lastResolvedDrill = resolved;
+  startFileWatcher(resolved);
+  return { path: resolved, name: path.basename(resolved) };
+});
+
+ipcMain.handle("dots:open", async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "Open OpenMarch drill",
+    properties: ["openFile"],
+    filters: [
+      { name: "OpenMarch Drill", extensions: ["dots"] },
+      { name: "SQLite Database", extensions: ["sqlite", "db"] },
+    ],
+  });
+
+  if (result.canceled || !result.filePaths[0]) return null;
+
+  const filePath = result.filePaths[0];
+  startFileWatcher(filePath);
+  return { path: filePath, name: path.basename(filePath) };
+});
+
+ipcMain.handle("file:read", async (_event, filePath) => {
+  return readFileBytes(filePath);
+});
+
+ipcMain.handle("dots:watch", async (_event, filePath) => {
+  startFileWatcher(filePath);
+  return true;
+});
+
+ipcMain.handle("dots:stop-watch", async () => {
+  if (watcher) watcher.close();
+  watcher = null;
+  watchedFile = null;
+  return true;
+});
+
+ipcMain.handle("audio:open", async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "Choose drill audio",
+    properties: ["openFile"],
+    filters: [{ name: "Audio", extensions: ["mp3", "m4a", "wav", "ogg", "aac", "flac"] }],
+  });
+  if (result.canceled || !result.filePaths[0]) return null;
+  const filePath = result.filePaths[0];
+  return { path: filePath, name: path.basename(filePath), data: await readFileBytes(filePath) };
+});
+
+app.whenReady().then(() => {
+  startSyncServer();
+  if (!process.env.VITE_DEV_SERVER_URL && !app.isPackaged) {
+    process.env.VITE_DEV_SERVER_URL = "http://localhost:5173";
+  }
+  createWindow();
+
+  app.on("activate", () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+});
+
+app.on("window-all-closed", () => {
+  if (watcher) watcher.close();
+  if (syncServer) syncServer.close();
+  if (process.platform !== "darwin") app.quit();
+});
