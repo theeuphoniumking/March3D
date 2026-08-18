@@ -1,0 +1,107 @@
+# .github/ISSUE_TEMPLATE/bug_report.yml
+
+name: Bug Report
+description: Report a problem with March3D
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a March3D bug.
+        Please provide as much detail as possible.
+
+  - type: input
+    id: version
+    attributes:
+      label: March3D Version
+      description: What version of March3D are you using?
+      placeholder: "Example: v0.3.33"
+    validations:
+      required: true
+
+  - type: input
+    id: openmarch-version
+    attributes:
+      label: OpenMarch Version
+      description: If this involves OpenMarch sync, what OpenMarch version are you using?
+      placeholder: "Example: 0.1.5"
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      options:
+        - Standalone
+        - OpenMarch Sync
+        - Both
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: windows-version
+    attributes:
+      label: Windows Version
+      options:
+        - Windows 11
+        - Windows 10
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the problem.
+      placeholder: Tell us what went wrong.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Tell us exactly how to reproduce the bug.
+      placeholder: |
+        1. Open March3D
+        2. Load a .dots file
+        3. Click OM Sync
+        4. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect March3D to do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: files
+    attributes:
+      label: Screenshots, Videos, or .dots Files
+      description: |
+        Drag screenshots/videos here. If the bug is drill-specific,
+        attach the .dots file if you are allowed to share it.
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error Messages or Logs
+      description: Paste any relevant errors here.
+      render: shell
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I checked that this issue has not already been reported.
+          required: true
+        - label: I am using a recent version of March3D.
+          required: true

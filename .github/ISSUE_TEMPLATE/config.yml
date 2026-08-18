@@ -1,0 +1,8 @@
+# .github/ISSUE_TEMPLATE/config.yml
+
+blank_issues_enabled: false
+
+contact_links:
+  - name: March3D Discussions
+    url: https://github.com/theeuphoniumking/March3D/discussions
+    about: Ask questions or discuss ideas that are not bugs or feature requests.

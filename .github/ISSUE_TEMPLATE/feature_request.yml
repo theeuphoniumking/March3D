@@ -1,0 +1,70 @@
+# .github/ISSUE_TEMPLATE/feature_request.yml
+
+name: Feature Request
+description: Suggest a new feature or improvement for March3D
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement to March3D.
+
+  - type: textarea
+    id: feature
+    attributes:
+      label: Feature
+      description: What would you like March3D to add or change?
+      placeholder: Describe the feature.
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Why would this feature be useful?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - 3D Rendering
+        - Marching Animation
+        - Performer Models
+        - Instruments
+        - Color Guard
+        - Football Field
+        - Playback
+        - Audio
+        - OpenMarch Sync
+        - User Interface
+        - Installer / Updates
+        - Performance
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Desired Behavior
+      description: Describe how you think the feature should work.
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Add screenshots, videos, diagrams, or examples if useful.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I checked that a similar feature has not already been requested.
+          required: true
