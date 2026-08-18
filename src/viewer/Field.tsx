@@ -17,8 +17,14 @@ function hashRowsForDrill(drill: Drill) {
   const feetPerStep = (drill.field.stepSizeInches || 22.5) / 12;
   const checkpoints = drill.field.yCheckpoints ?? [];
   const hashCheckpoints = checkpoints.filter((checkpoint) => {
-    const text = `${checkpoint.name ?? ""} ${checkpoint.terseName ?? ""}`.toLowerCase();
-    return /(^|\s)(fh|bh)(\s|$)/.test(text) || text.includes("front hash") || text.includes("back hash") || text.includes("hash mark");
+    const text =
+      `${checkpoint.name ?? ""} ${checkpoint.terseName ?? ""}`.toLowerCase();
+    return (
+      /(^|\s)(fh|bh)(\s|$)/.test(text) ||
+      text.includes("front hash") ||
+      text.includes("back hash") ||
+      text.includes("hash mark")
+    );
   });
 
   if (hashCheckpoints.length >= 2) {
@@ -27,15 +33,23 @@ function hashRowsForDrill(drill: Drill) {
     // grid coordinate into March3D's Z axis instead of relying on HS/NCAA
     // hard-coded hash locations.
     const rows = hashCheckpoints
-      .map((checkpoint) => -FIELD_WIDTH / 2 - checkpoint.stepsFromCenterFront * feetPerStep)
-      .filter((z) => Number.isFinite(z) && z > -FIELD_WIDTH / 2 && z < FIELD_WIDTH / 2)
+      .map(
+        (checkpoint) =>
+          -FIELD_WIDTH / 2 - checkpoint.stepsFromCenterFront * feetPerStep,
+      )
+      .filter(
+        (z) =>
+          Number.isFinite(z) && z > -FIELD_WIDTH / 2 && z < FIELD_WIDTH / 2,
+      )
       .sort((a, b) => a - b);
     if (rows.length >= 2) return [rows[0], rows[rows.length - 1]] as const;
   }
 
   const name = (drill.field.name ?? "").toLowerCase();
-  if (name.includes("high school") || name.includes("hs")) return [-26.666667, 26.666667] as const;
-  if (name.includes("nfl") || name.includes("pro")) return [-9.25, 9.25] as const;
+  if (name.includes("high school") || name.includes("hs"))
+    return [-26.666667, 26.666667] as const;
+  if (name.includes("nfl") || name.includes("pro"))
+    return [-9.25, 9.25] as const;
   return [-20, 20] as const;
 }
 
@@ -43,11 +57,18 @@ function numberRowsForDrill(drill: Drill) {
   const coords = drill.field.yardNumberCoordinates;
   const feetPerStep = (drill.field.stepSizeInches || 22.5) / 12;
   if (coords) {
-    const homeCenterSteps = (Number(coords.homeStepsFromFrontToOutside) + Number(coords.homeStepsFromFrontToInside)) / 2;
-    const awayCenterSteps = (Number(coords.awayStepsFromFrontToInside) + Number(coords.awayStepsFromFrontToOutside)) / 2;
+    const homeCenterSteps =
+      (Number(coords.homeStepsFromFrontToOutside) +
+        Number(coords.homeStepsFromFrontToInside)) /
+      2;
+    const awayCenterSteps =
+      (Number(coords.awayStepsFromFrontToInside) +
+        Number(coords.awayStepsFromFrontToOutside)) /
+      2;
     const homeZ = -FIELD_WIDTH / 2 + homeCenterSteps * feetPerStep;
     const awayZ = -FIELD_WIDTH / 2 + awayCenterSteps * feetPerStep;
-    if (Number.isFinite(homeZ) && Number.isFinite(awayZ)) return [homeZ, awayZ] as const;
+    if (Number.isFinite(homeZ) && Number.isFinite(awayZ))
+      return [homeZ, awayZ] as const;
   }
 
   // OpenMarch's standard HS/NCAA field presets place the center of a six-foot
@@ -55,7 +76,6 @@ function numberRowsForDrill(drill: Drill) {
   // older/custom files that do not store yardNumberCoordinates.
   return [-FIELD_WIDTH / 2 + 24, FIELD_WIDTH / 2 - 24] as const;
 }
-
 
 export default function Field({ drill }: { drill: Drill }) {
   const logoTexture = useTexture(logoUrl);
@@ -76,7 +96,13 @@ export default function Field({ drill }: { drill: Drill }) {
   const lineGeometry = useMemo(() => {
     const positions: number[] = [];
 
-    const quad = (x1: number, z1: number, x2: number, z2: number, width: number) => {
+    const quad = (
+      x1: number,
+      z1: number,
+      x2: number,
+      z2: number,
+      width: number,
+    ) => {
       const dx = x2 - x1;
       const dz = z2 - z1;
       const len = Math.hypot(dx, dz) || 1;
@@ -108,18 +134,18 @@ export default function Field({ drill }: { drill: Drill }) {
     for (let yard = 1; yard < 100; yard++) {
       if (yard % 5 === 0) continue;
       const x = leftGoal + yard * YARD;
-      quad(x, -halfWidth, x, -halfWidth + 3.2, 0.20);
-      quad(x, halfWidth - 3.2, x, halfWidth, 0.20);
+      quad(x, -halfWidth, x, -halfWidth + 3.2, 0.2);
+      quad(x, halfWidth - 3.2, x, halfWidth, 0.2);
       // Between 5-yard lines, the small one-yard hash marks run 90 degrees
       // to the 5-yard-line hashes. Their inward/field-facing endpoint is kept
       // exactly on the same hash-row coordinate as the horizontal T hashes.
       // That makes the inside edge of every short hash line up cleanly with the
       // horizontal hashes on the yard lines, like the real field reference.
-      const betweenHashLength = 1.70;
+      const betweenHashLength = 1.7;
       // near/front row: center of the field is +Z, so extend outward toward -Z.
-      quad(x, nearHashZ - betweenHashLength, x, nearHashZ, 0.20);
+      quad(x, nearHashZ - betweenHashLength, x, nearHashZ, 0.2);
       // far/back row: center of the field is -Z, so extend outward toward +Z.
-      quad(x, farHashZ, x, farHashZ + betweenHashLength, 0.20);
+      quad(x, farHashZ, x, farHashZ + betweenHashLength, 0.2);
     }
 
     for (let yard = 5; yard < 100; yard += 5) {
@@ -136,7 +162,10 @@ export default function Field({ drill }: { drill: Drill }) {
     }
 
     const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(positions, 3),
+    );
     geometry.computeVertexNormals();
     geometry.computeBoundingSphere();
     return geometry;
@@ -150,18 +179,35 @@ export default function Field({ drill }: { drill: Drill }) {
       {Array.from({ length: 20 }, (_, i) => {
         const stripeLength = PLAYING_LENGTH / 20;
         return (
-          <mesh key={`stripe-${i}`} position={[leftGoal + stripeLength * (i + 0.5), SURFACE_Y - 0.15, 0]} receiveShadow>
+          <mesh
+            key={`stripe-${i}`}
+            position={[
+              leftGoal + stripeLength * (i + 0.5),
+              SURFACE_Y - 0.15,
+              0,
+            ]}
+            receiveShadow
+          >
             <boxGeometry args={[stripeLength, 0.3, FIELD_WIDTH]} />
-            <meshStandardMaterial color={i % 2 === 0 ? "#548f33" : "#477d2c"} roughness={1} />
+            <meshStandardMaterial
+              color={i % 2 === 0 ? "#548f33" : "#477d2c"}
+              roughness={1}
+            />
           </mesh>
         );
       })}
 
-      <mesh position={[-halfLength + END_ZONE / 2, SURFACE_Y - 0.15, 0]} receiveShadow>
+      <mesh
+        position={[-halfLength + END_ZONE / 2, SURFACE_Y - 0.15, 0]}
+        receiveShadow
+      >
         <boxGeometry args={[END_ZONE, 0.3, FIELD_WIDTH]} />
         <meshStandardMaterial color={PURPLE} roughness={0.9} />
       </mesh>
-      <mesh position={[halfLength - END_ZONE / 2, SURFACE_Y - 0.15, 0]} receiveShadow>
+      <mesh
+        position={[halfLength - END_ZONE / 2, SURFACE_Y - 0.15, 0]}
+        receiveShadow
+      >
         <boxGeometry args={[END_ZONE, 0.3, FIELD_WIDTH]} />
         <meshStandardMaterial color={PURPLE} roughness={0.9} />
       </mesh>
@@ -181,33 +227,69 @@ export default function Field({ drill }: { drill: Drill }) {
         />
       </mesh>
 
-      {yardLabels.flatMap((yard, i) => [homeNumberZ, awayNumberZ].map((z) => (
-        <Text
-          key={`number-${i}-${z}`}
-          position={[yardXs[i], 0.0025, z]}
-          rotation={[-Math.PI / 2, 0, z < 0 ? Math.PI : 0]}
-          fontSize={7}
-          fontWeight={700}
-          color="#ffffff"
-          anchorX="center"
-          anchorY="middle"
-          fillOpacity={0.9}
-          depthOffset={-2}
-        >
-          {String(yard)}
-        </Text>
-      )))}
+      {yardLabels.flatMap((yard, i) =>
+        [homeNumberZ, awayNumberZ].map((z) => (
+          <Text
+            key={`number-${i}-${z}`}
+            position={[yardXs[i], 0.0025, z]}
+            rotation={[-Math.PI / 2, 0, z < 0 ? Math.PI : 0]}
+            fontSize={7}
+            fontWeight={700}
+            color="#ffffff"
+            anchorX="center"
+            anchorY="middle"
+            fillOpacity={0.9}
+            depthOffset={-2}
+          >
+            {String(yard)}
+          </Text>
+        )),
+      )}
 
-      <Text depthOffset={-2} position={[-halfLength + END_ZONE / 2, 0.0025, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]} fontSize={10.5} fontWeight={800} letterSpacing={-0.03} color="#ffffff" anchorX="center" anchorY="middle">
+      <Text
+        depthOffset={-2}
+        position={[-halfLength + END_ZONE / 2, 0.0025, 0]}
+        rotation={[-Math.PI / 2, 0, Math.PI / 2]}
+        fontSize={10.5}
+        fontWeight={800}
+        letterSpacing={-0.03}
+        color="#ffffff"
+        anchorX="center"
+        anchorY="middle"
+      >
         MARCH3D
       </Text>
-      <Text depthOffset={-2} position={[halfLength - END_ZONE / 2, 0.0025, 0]} rotation={[-Math.PI / 2, 0, -Math.PI / 2]} fontSize={10.5} fontWeight={800} letterSpacing={-0.03} color="#ffffff" anchorX="center" anchorY="middle">
+      <Text
+        depthOffset={-2}
+        position={[halfLength - END_ZONE / 2, 0.0025, 0]}
+        rotation={[-Math.PI / 2, 0, -Math.PI / 2]}
+        fontSize={10.5}
+        fontWeight={800}
+        letterSpacing={-0.03}
+        color="#ffffff"
+        anchorX="center"
+        anchorY="middle"
+      >
         MARCH3D
       </Text>
 
-      <mesh rotation={[-Math.PI / 2, 0, Math.PI]} position={[0, 0.003, 0]} renderOrder={2}>
+      <mesh
+        rotation={[-Math.PI / 2, 0, Math.PI]}
+        position={[0, 0.003, 0]}
+        renderOrder={2}
+      >
         <planeGeometry args={[29, 29]} />
-        <meshBasicMaterial map={logoTexture} transparent depthWrite={false} depthTest polygonOffset polygonOffsetFactor={-3} polygonOffsetUnits={-3} toneMapped={false} opacity={0.96} />
+        <meshBasicMaterial
+          map={logoTexture}
+          transparent
+          depthWrite={false}
+          depthTest
+          polygonOffset
+          polygonOffsetFactor={-3}
+          polygonOffsetUnits={-3}
+          toneMapped={false}
+          opacity={0.96}
+        />
       </mesh>
     </group>
   );

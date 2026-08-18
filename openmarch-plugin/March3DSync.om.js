@@ -1,6 +1,6 @@
 // Name: March3D Sync
 // Description: Syncs OpenMarch playback to the local March3D viewer.
-// Version: 0.3.32
+// Version: 0.3.33
 // Author: March3D
 //
 // OpenMarch's AudioPlayer starts both its music and metronome AudioBufferSourceNodes
@@ -24,7 +24,8 @@ async function March3DSync() {
     if (typeof value !== "string") return [];
     const out = [];
     const windows = value.match(/[A-Za-z]:[\\/][^"'<>|\r\n]*?\.dots/gi) || [];
-    const unix = value.match(/\/(?:[^"'<>|\r\n/]+\/)*[^"'<>|\r\n/]+\.dots/gi) || [];
+    const unix =
+      value.match(/\/(?:[^"'<>|\r\n/]+\/)*[^"'<>|\r\n/]+\.dots/gi) || [];
     const names = value.match(/[^"'<>|\r\n\/\\]+\.dots/gi) || [];
     for (const item of [...windows, ...unix, ...names]) {
       const clean = item.trim();
@@ -37,7 +38,10 @@ async function March3DSync() {
     const candidates = [];
     const add = (value, weight = 0) => {
       for (const path of extractDotsStrings(value)) {
-        candidates.push({ path, weight: weight + (/[A-Za-z]:[\\/]|^\//.test(path) ? 100 : 0) });
+        candidates.push({
+          path,
+          weight: weight + (/[A-Za-z]:[\\/]|^\//.test(path) ? 100 : 0),
+        });
       }
     };
 
@@ -70,7 +74,10 @@ async function March3DSync() {
           const key = storage.key(i);
           if (!key) continue;
           const value = storage.getItem(key);
-          const keyBonus = /file|path|database|recent|workspace|show|project/i.test(key) ? 35 : 0;
+          const keyBonus =
+            /file|path|database|recent|workspace|show|project/i.test(key)
+              ? 35
+              : 0;
           add(value || "", keyBonus);
         }
       } catch {}
@@ -79,8 +86,9 @@ async function March3DSync() {
     // Local/session storage is enough to catch OpenMarch recent/current-file state
     // without walking large application stores every polling interval.
 
-
-    candidates.sort((a, b) => b.weight - a.weight || b.path.length - a.path.length);
+    candidates.sort(
+      (a, b) => b.weight - a.weight || b.path.length - a.path.length,
+    );
     return candidates[0]?.path || null;
   }
 
@@ -89,7 +97,11 @@ async function March3DSync() {
     if (!candidate) return;
     if (!force && candidate === lastDrillCandidate) return;
     lastDrillCandidate = candidate;
-    send({ type: "drill-file", path: candidate, name: candidate.split(/[\\/]/).pop() });
+    send({
+      type: "drill-file",
+      path: candidate,
+      name: candidate.split(/[\\/]/).pop(),
+    });
   }
 
   function connect() {
@@ -126,7 +138,10 @@ async function March3DSync() {
   // The AudioBufferSourceNode's offset is startTimestamp + pageDuration.
   function currentPosition() {
     if (!playback) return 0;
-    const elapsed = Math.max(0, playback.context.currentTime - playback.startAt);
+    const elapsed = Math.max(
+      0,
+      playback.context.currentTime - playback.startAt,
+    );
     return playback.offset + elapsed + 0.11;
   }
 
@@ -171,9 +186,10 @@ async function March3DSync() {
     const context = sourceContexts.get(source);
     if (!context) return;
 
-    const startAt = Number.isFinite(when) && when > context.currentTime
-      ? when
-      : context.currentTime;
+    const startAt =
+      Number.isFinite(when) && when > context.currentTime
+        ? when
+        : context.currentTime;
     const startOffset = Number.isFinite(offset) ? Math.max(0, offset) : 0;
 
     primarySource = source;
@@ -193,14 +209,17 @@ async function March3DSync() {
     if (patched) return true;
     if (!window.AudioContext || !window.AudioBufferSourceNode) return false;
 
-    const originalCreateBufferSource = AudioContext.prototype.createBufferSource;
+    const originalCreateBufferSource =
+      AudioContext.prototype.createBufferSource;
     const originalStart = AudioBufferSourceNode.prototype.start;
     const originalStop = AudioBufferSourceNode.prototype.stop;
 
     AudioContext.prototype.createBufferSource = function (...args) {
       const source = originalCreateBufferSource.apply(this, args);
       sourceContexts.set(source, this);
-      source.addEventListener("ended", () => sourceStopped(source), { once: true });
+      source.addEventListener("ended", () => sourceStopped(source), {
+        once: true,
+      });
       return source;
     };
 
@@ -232,7 +251,9 @@ async function March3DSync() {
   // File changes are rare. A 2.5 second probe still notices show switches quickly
   // while reducing DOM scanning work in very large OpenMarch projects.
   const drillFileTimer = setInterval(() => sendActiveDrill(false), 2500);
-  window.addEventListener("beforeunload", () => clearInterval(drillFileTimer), { once: true });
+  window.addEventListener("beforeunload", () => clearInterval(drillFileTimer), {
+    once: true,
+  });
 
   connect();
 }

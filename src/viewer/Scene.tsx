@@ -49,14 +49,35 @@ function Scene({
 }) {
   const largeBand = drill.marchers.length > 160;
   return (
-    <Canvas shadows={!largeBand} dpr={largeBand ? 1 : [1, 1.5]} camera={{ position: [0, 215, -315], fov: 45, near: 0.75, far: 1200 }}>
-      <PerspectiveCamera makeDefault position={[0, 215, 315]} fov={45} near={0.75} far={1200} />
+    <Canvas
+      shadows={!largeBand}
+      dpr={largeBand ? 1 : [1, 1.5]}
+      camera={{ position: [0, 215, -315], fov: 45, near: 0.75, far: 1200 }}
+    >
+      <PerspectiveCamera
+        makeDefault
+        position={[0, 215, 315]}
+        fov={45}
+        near={0.75}
+        far={1200}
+      />
       <color attach="background" args={["#0d1015"]} />
       <ambientLight intensity={1.25} />
-      <directionalLight position={[80, 180, 120]} intensity={2.8} castShadow={!largeBand} shadow-normalBias={0.025} shadow-bias={-0.0001} />
+      <directionalLight
+        position={[80, 180, 120]}
+        intensity={2.8}
+        castShadow={!largeBand}
+        shadow-normalBias={0.025}
+        shadow-bias={-0.0001}
+      />
       <directionalLight position={[-120, 80, -100]} intensity={0.7} />
       <Field drill={drill} />
-      <Marchers drill={drill} labels={labels} pageTimes={pageTimes} playheadRef={playheadRef} />
+      <Marchers
+        drill={drill}
+        labels={labels}
+        pageTimes={pageTimes}
+        playheadRef={playheadRef}
+      />
       <CameraController resetToken={resetToken} />
     </Canvas>
   );

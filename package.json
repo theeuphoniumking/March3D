@@ -1,6 +1,7 @@
 {
-  "name": "march3d",
-  "version": "0.3.32",
+  "name": "March3D",
+  "version": "0.3.33",
+  "author": "Connor Pali",
   "private": true,
   "description": "3D viewer for OpenMarch .dots drill files",
   "main": "electron/main.cjs",
@@ -18,7 +19,8 @@
     "@react-three/fiber": "^9.7.0",
     "react-dom": "^19.2.8",
     "sql.js": "^1.13.0",
-    "three": "^0.179.1"
+    "three": "^0.179.1",
+    "electron-updater": "^6.6.2"
   },
   "devDependencies": {
     "@types/react": "^19.1.10",
@@ -70,6 +72,13 @@
       {
         "from": "openmarch-plugin/March3DSync.om.js",
         "to": "openmarch-plugin/March3DSync.om.js"
+      }
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "theeuphoniumking",
+        "repo": "March3D"
       }
     ]
   },

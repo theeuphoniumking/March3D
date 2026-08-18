@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MutableRefObject,
+} from "react";
 import Scene from "./viewer/Scene";
 import { parseDots, type Drill } from "./lib/dots";
 import logoUrl from "./assets/March3D-clear.png";
@@ -6,9 +13,19 @@ import * as THREE from "three";
 
 function audioMime(path: string) {
   const ext = path.toLowerCase().split(".").pop();
-  return ({ mp3: "audio/mpeg", m4a: "audio/mp4", wav: "audio/wav", ogg: "audio/ogg", aac: "audio/aac", flac: "audio/flac" } as Record<string, string>)[ext ?? ""] ?? "audio/mpeg";
+  return (
+    (
+      {
+        mp3: "audio/mpeg",
+        m4a: "audio/mp4",
+        wav: "audio/wav",
+        ogg: "audio/ogg",
+        aac: "audio/aac",
+        flac: "audio/flac",
+      } as Record<string, string>
+    )[ext ?? ""] ?? "audio/mpeg"
+  );
 }
-
 
 function formatClock(seconds: number) {
   const safe = Math.max(0, Number.isFinite(seconds) ? seconds : 0);
@@ -63,7 +80,11 @@ function PlaybackBanner({
         return;
       }
 
-      const time = THREE.MathUtils.clamp(playheadRef.current, 0, Math.max(duration, 0));
+      const time = THREE.MathUtils.clamp(
+        playheadRef.current,
+        0,
+        Math.max(duration, 0),
+      );
 
       // Determine the active transition directly from the render-clock ref.
       // Do not use React's sidebar pageIndex here: that state is deliberately
@@ -90,14 +111,24 @@ function PlaybackBanner({
         startBeatIndex = drill.pages[last]?.startBeatIndex ?? 0;
       } else {
         const nextBoundary = drill.pages[toIndex + 1]?.startBeatIndex;
-        total = nextBoundary != null
-          ? Math.max(1, nextBoundary - startBeatIndex)
-          : Math.max(1, startBeatIndex - (drill.pages[toIndex - 1]?.startBeatIndex ?? 0));
+        total =
+          nextBoundary != null
+            ? Math.max(1, nextBoundary - startBeatIndex)
+            : Math.max(
+                1,
+                startBeatIndex -
+                  (drill.pages[toIndex - 1]?.startBeatIndex ?? 0),
+              );
       }
 
       const moveStartTime = pageTimes[interval] ?? 0;
       const elapsedInMove = Math.max(0, time - moveStartTime);
-      const count = countAtExactBeatTime(drill, startBeatIndex, total, elapsedInMove);
+      const count = countAtExactBeatTime(
+        drill,
+        startBeatIndex,
+        total,
+        elapsedInMove,
+      );
 
       const fromLabel = drill.pages[fromIndex]?.displayNumber ?? fromIndex;
       const toLabel = isFinalInterval
@@ -130,11 +161,13 @@ function PlaybackBanner({
     return () => cancelAnimationFrame(frame);
   }, [drill, pageTimes, playheadRef, duration]);
 
-  return <div className="playback-banner">
-    <span ref={setRef} />
-    <span ref={countRef} />
-    <span ref={timeRef} />
-  </div>;
+  return (
+    <div className="playback-banner">
+      <span ref={setRef} />
+      <span ref={countRef} />
+      <span ref={timeRef} />
+    </div>
+  );
 }
 
 export default function App() {
@@ -145,7 +178,10 @@ export default function App() {
   const [playhead, setPlayhead] = useState(0);
   const [error, setError] = useState("");
   const [syncConnected, setSyncConnected] = useState(false);
-  const [externalAudio, setExternalAudio] = useState<{ name: string; url: string } | null>(null);
+  const [externalAudio, setExternalAudio] = useState<{
+    name: string;
+    url: string;
+  } | null>(null);
   const [sourcePath, setSourcePath] = useState<string | null>(null);
   const [loadVersion, setLoadVersion] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -153,9 +189,14 @@ export default function App() {
   const playingRef = useRef(false);
   const playheadRef = useRef(0);
   const syncAnchorRef = useRef({ position: 0, receivedAt: performance.now() });
-  const standaloneAnchorRef = useRef({ position: 0, startedAt: performance.now() });
+  const standaloneAnchorRef = useRef({
+    position: 0,
+    startedAt: performance.now(),
+  });
   const standaloneAudioStartedRef = useRef(false);
-  const pendingDotsRef = useRef<{ path: string; changedAt: number } | null>(null);
+  const pendingDotsRef = useRef<{ path: string; changedAt: number } | null>(
+    null,
+  );
   const refreshingDotsRef = useRef(false);
   const autoOpeningPathRef = useRef<string | null>(null);
   // playheadRef is the *visual* timeline used by the 3D scene.  We keep it
@@ -171,7 +212,8 @@ export default function App() {
   // OpenMarch's zero-duration sentinel beat: without this offset, Set 0 and
   // Set 1 both land at t=0 and playback appears to start on Set 1.
   const pageTimes = useMemo(() => {
-    if (!drill || drill.pages.length === 0 || drill.beats.length === 0) return [];
+    if (!drill || drill.pages.length === 0 || drill.beats.length === 0)
+      return [];
 
     const beatStartTimes = new Array(drill.beats.length).fill(0);
     let elapsed = 0;
@@ -182,7 +224,9 @@ export default function App() {
 
     const movementStarts = drill.pages.map((page) => {
       const index = page.startBeatIndex;
-      return index >= 0 && index < beatStartTimes.length ? beatStartTimes[index] : 0;
+      return index >= 0 && index < beatStartTimes.length
+        ? beatStartTimes[index]
+        : 0;
     });
 
     if (movementStarts.length === 1) return [0];
@@ -208,7 +252,10 @@ export default function App() {
 
     let finalMoveDuration = 0;
     if (drill.lastPageCounts > 0 && lastBeatIndex >= 0) {
-      const endBeatIndex = Math.min(drill.beats.length, lastBeatIndex + drill.lastPageCounts);
+      const endBeatIndex = Math.min(
+        drill.beats.length,
+        lastBeatIndex + drill.lastPageCounts,
+      );
       for (let i = lastBeatIndex; i < endBeatIndex; i++) {
         finalMoveDuration += Math.max(0, Number(drill.beats[i]?.duration) || 0);
       }
@@ -217,75 +264,124 @@ export default function App() {
     if (finalMoveDuration <= 0) {
       finalMoveDuration = Math.max(0, lastStart - previousStart);
       if (last >= 2 && finalMoveDuration <= 0) {
-        finalMoveDuration = Math.max(0, previousStart - (movementStarts[last - 2] ?? 0));
+        finalMoveDuration = Math.max(
+          0,
+          previousStart - (movementStarts[last - 2] ?? 0),
+        );
       }
     }
 
-    arrivals[last] = Math.max(arrivals[last - 1], lastStart + finalMoveDuration);
+    arrivals[last] = Math.max(
+      arrivals[last - 1],
+      lastStart + finalMoveDuration,
+    );
 
     return arrivals;
   }, [drill]);
 
-
-
-  const page = drill?.pages[Math.min(pageIndex, (drill?.pages.length ?? 1) - 1)];
-  const sections = useMemo(() => drill ? [...new Set(drill.marchers.map((m) => m.section))] : [], [drill]);
+  const page =
+    drill?.pages[Math.min(pageIndex, (drill?.pages.length ?? 1) - 1)];
+  const sections = useMemo(
+    () => (drill ? [...new Set(drill.marchers.map((m) => m.section))] : []),
+    [drill],
+  );
   const embeddedAudioUrl = useMemo(() => {
     if (!drill?.audio?.data) return null;
-    const blob = new Blob([drill.audio.data.buffer.slice(drill.audio.data.byteOffset, drill.audio.data.byteOffset + drill.audio.data.byteLength) as ArrayBuffer], { type: audioMime(drill.audio.path) });
+    const blob = new Blob(
+      [
+        drill.audio.data.buffer.slice(
+          drill.audio.data.byteOffset,
+          drill.audio.data.byteOffset + drill.audio.data.byteLength,
+        ) as ArrayBuffer,
+      ],
+      { type: audioMime(drill.audio.path) },
+    );
     return URL.createObjectURL(blob);
   }, [drill]);
   const audioUrl = externalAudio?.url ?? embeddedAudioUrl;
-  const pageIndexForTime = useCallback((time: number) => {
-    if (!pageTimes.length) return 0;
-    let index = 0;
-    for (let i = 1; i < pageTimes.length; i++) {
-      if (time >= pageTimes[i]) index = i;
-      else break;
-    }
-    return index;
-  }, [pageTimes]);
-
-  useEffect(() => () => {
-    if (embeddedAudioUrl) URL.revokeObjectURL(embeddedAudioUrl);
-    if (externalAudio?.url) URL.revokeObjectURL(externalAudio.url);
-  }, [embeddedAudioUrl, externalAudio]);
-
-  const loadBuffer = useCallback(async (buffer: ArrayBuffer | Uint8Array, sourceName: string, path?: string, preservePosition = false, includeAudioData = true, reuseExistingAudio = !includeAudioData) => {
-    setError("");
-    const preservedTime = playheadRef.current;
-    try {
-      const parsed = await parseDots(buffer instanceof Uint8Array ? (buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer) : buffer, sourceName, includeAudioData);
-      setDrill((current) => includeAudioData || parsed.audio || !reuseExistingAudio
-        ? parsed
-        : { ...parsed, audio: current?.audio ?? null });
-      // Hundreds of DOM-backed labels can overwhelm Chromium before the 3D
-      // renderer even starts. Keep labels automatic for normal ensembles and
-      // start large files in the fast instanced-rendering path.
-      setLabels(parsed.marchers.length <= 180);
-      if (preservePosition) {
-        playheadRef.current = preservedTime;
-        setPlayhead(preservedTime);
-      } else {
-        setPageIndex(0);
-        playheadRef.current = 0;
-        setPlayhead(0);
-        playingRef.current = false;
-        setPlaying(false);
-        standaloneAnchorRef.current = { position: 0, startedAt: performance.now() };
-        standaloneAudioStartedRef.current = false;
-        if (audioRef.current) {
-          audioRef.current.pause();
-          audioRef.current.currentTime = Math.max(0, -(parsed.audioOffsetSeconds || 0));
-        }
-        setLoadVersion((v) => v + 1);
+  const pageIndexForTime = useCallback(
+    (time: number) => {
+      if (!pageTimes.length) return 0;
+      let index = 0;
+      for (let i = 1; i < pageTimes.length; i++) {
+        if (time >= pageTimes[i]) index = i;
+        else break;
       }
-      setSourcePath(path ?? null);
-    } catch (e) {
-      console.error(e);
-      setError(e instanceof Error ? e.message : "Could not read .dots file.");
-    }
-  }, []);
+      return index;
+    },
+    [pageTimes],
+  );
+
+  useEffect(
+    () => () => {
+      if (embeddedAudioUrl) URL.revokeObjectURL(embeddedAudioUrl);
+      if (externalAudio?.url) URL.revokeObjectURL(externalAudio.url);
+    },
+    [embeddedAudioUrl, externalAudio],
+  );
+
+  const loadBuffer = useCallback(
+    async (
+      buffer: ArrayBuffer | Uint8Array,
+      sourceName: string,
+      path?: string,
+      preservePosition = false,
+      includeAudioData = true,
+      reuseExistingAudio = !includeAudioData,
+    ) => {
+      setError("");
+      const preservedTime = playheadRef.current;
+      try {
+        const parsed = await parseDots(
+          buffer instanceof Uint8Array
+            ? (buffer.buffer.slice(
+                buffer.byteOffset,
+                buffer.byteOffset + buffer.byteLength,
+              ) as ArrayBuffer)
+            : buffer,
+          sourceName,
+          includeAudioData,
+        );
+        setDrill((current) =>
+          includeAudioData || parsed.audio || !reuseExistingAudio
+            ? parsed
+            : { ...parsed, audio: current?.audio ?? null },
+        );
+        // Hundreds of DOM-backed labels can overwhelm Chromium before the 3D
+        // renderer even starts. Keep labels automatic for normal ensembles and
+        // start large files in the fast instanced-rendering path.
+        setLabels(parsed.marchers.length <= 180);
+        if (preservePosition) {
+          playheadRef.current = preservedTime;
+          setPlayhead(preservedTime);
+        } else {
+          setPageIndex(0);
+          playheadRef.current = 0;
+          setPlayhead(0);
+          playingRef.current = false;
+          setPlaying(false);
+          standaloneAnchorRef.current = {
+            position: 0,
+            startedAt: performance.now(),
+          };
+          standaloneAudioStartedRef.current = false;
+          if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = Math.max(
+              0,
+              -(parsed.audioOffsetSeconds || 0),
+            );
+          }
+          setLoadVersion((v) => v + 1);
+        }
+        setSourcePath(path ?? null);
+      } catch (e) {
+        console.error(e);
+        setError(e instanceof Error ? e.message : "Could not read .dots file.");
+      }
+    },
+    [],
+  );
 
   async function openFile(file?: File) {
     if (!file) return;
@@ -303,7 +399,9 @@ export default function App() {
 
       if (!result) {
         if (syncConnectedRef.current) {
-          setError("OpenMarch is synced, but it has not reported an open .dots file yet. Switch/open a drill in OpenMarch and try again.");
+          setError(
+            "OpenMarch is synced, but it has not reported an open .dots file yet. Switch/open a drill in OpenMarch and try again.",
+          );
         }
         return;
       }
@@ -325,7 +423,17 @@ export default function App() {
       const result = await window.march3d.openAudioFile();
       if (!result) return;
       const bytes = result.data;
-      const url = URL.createObjectURL(new Blob([bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer], { type: audioMime(result.path) }));
+      const url = URL.createObjectURL(
+        new Blob(
+          [
+            bytes.buffer.slice(
+              bytes.byteOffset,
+              bytes.byteOffset + bytes.byteLength,
+            ) as ArrayBuffer,
+          ],
+          { type: audioMime(result.path) },
+        ),
+      );
       setExternalAudio({ name: result.name, url });
       return;
     }
@@ -340,7 +448,10 @@ export default function App() {
     if (!next) {
       playingRef.current = false;
       setPlaying(false);
-      standaloneAnchorRef.current = { position: playheadRef.current, startedAt: performance.now() };
+      standaloneAnchorRef.current = {
+        position: playheadRef.current,
+        startedAt: performance.now(),
+      };
       standaloneAudioStartedRef.current = false;
       audio?.pause();
       return;
@@ -352,7 +463,10 @@ export default function App() {
       setPageIndex(pageIndexForTime(0));
     }
 
-    standaloneAnchorRef.current = { position: playheadRef.current, startedAt: performance.now() };
+    standaloneAnchorRef.current = {
+      position: playheadRef.current,
+      startedAt: performance.now(),
+    };
     playingRef.current = true;
     setPlaying(true);
 
@@ -367,7 +481,9 @@ export default function App() {
         playingRef.current = false;
         setPlaying(false);
         standaloneAudioStartedRef.current = false;
-        setError(`Audio could not start: ${e instanceof Error ? e.message : "browser blocked playback"}`);
+        setError(
+          `Audio could not start: ${e instanceof Error ? e.message : "browser blocked playback"}`,
+        );
       }
     } else {
       // Positive OpenMarch offsets pad the audio with silence. The render clock
@@ -384,9 +500,15 @@ export default function App() {
     const time = pageTimes[safe] ?? 0;
     playheadRef.current = time;
     setPlayhead(time);
-    standaloneAnchorRef.current = { position: time, startedAt: performance.now() };
+    standaloneAnchorRef.current = {
+      position: time,
+      startedAt: performance.now(),
+    };
     if (audioRef.current && !syncConnectedRef.current) {
-      audioRef.current.currentTime = Math.max(0, time - (drill?.audioOffsetSeconds ?? 0));
+      audioRef.current.currentTime = Math.max(
+        0,
+        time - (drill?.audioOffsetSeconds ?? 0),
+      );
     }
   }
 
@@ -417,7 +539,14 @@ export default function App() {
           const bytes = await window.march3d!.readFile(pending.path);
           // Keep the already-loaded audio blob. Re-reading an 18+ MB embedded
           // track just to update dots/sets is unnecessary and caused long stalls.
-          await loadBuffer(bytes, pending.path.split(/[\\/]/).pop() ?? "OpenMarch drill", pending.path, true, false, true);
+          await loadBuffer(
+            bytes,
+            pending.path.split(/[\\/]/).pop() ?? "OpenMarch drill",
+            pending.path,
+            true,
+            false,
+            true,
+          );
         } finally {
           refreshingDotsRef.current = false;
         }
@@ -431,7 +560,8 @@ export default function App() {
     return window.march3d.onOpenMarchSync((message) => {
       if (message.type === "drill-file") {
         const path = message.path;
-        if (!path || path === sourcePath || autoOpeningPathRef.current === path) return;
+        if (!path || path === sourcePath || autoOpeningPathRef.current === path)
+          return;
         autoOpeningPathRef.current = path;
         void (async () => {
           try {
@@ -439,17 +569,28 @@ export default function App() {
             // importantly, OpenMarch owns audio while synced, so do not pull a
             // 10-50 MB embedded audio blob through sql.js just to render drill.
             // This makes switching OM files much less likely to hitch/freeze.
-            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+            await new Promise<void>((resolve) =>
+              requestAnimationFrame(() => resolve()),
+            );
             const bytes = await window.march3d!.readFile(path);
             setExternalAudio((current) => {
               if (current?.url) URL.revokeObjectURL(current.url);
               return null;
             });
-            await loadBuffer(bytes, message.name || path.split(/[\\/]/).pop() || "OpenMarch drill", path, false, false, false);
+            await loadBuffer(
+              bytes,
+              message.name || path.split(/[\\/]/).pop() || "OpenMarch drill",
+              path,
+              false,
+              false,
+              false,
+            );
             await window.march3d!.watchFile(path);
           } catch (e) {
             console.error("Could not auto-open OpenMarch drill", e);
-            setError(`OpenMarch is synced, but March3D could not open its drill: ${e instanceof Error ? e.message : "unknown error"}`);
+            setError(
+              `OpenMarch is synced, but March3D could not open its drill: ${e instanceof Error ? e.message : "unknown error"}`,
+            );
           } finally {
             autoOpeningPathRef.current = null;
           }
@@ -467,7 +608,10 @@ export default function App() {
           audioRef.current?.pause();
           playingRef.current = false;
           setPlaying(false);
-          syncAnchorRef.current = { position: playheadRef.current, receivedAt: performance.now() };
+          syncAnchorRef.current = {
+            position: playheadRef.current,
+            receivedAt: performance.now(),
+          };
         }
         return;
       }
@@ -511,17 +655,24 @@ export default function App() {
         playingRef.current = !!message.playing;
         setPlaying(!!message.playing);
         if (!message.playing) {
-          syncAnchorRef.current = { position: playheadRef.current, receivedAt: performance.now() };
+          syncAnchorRef.current = {
+            position: playheadRef.current,
+            receivedAt: performance.now(),
+          };
           return;
         }
-        syncAnchorRef.current = { position: playheadRef.current, receivedAt: performance.now() };
+        syncAnchorRef.current = {
+          position: playheadRef.current,
+          receivedAt: performance.now(),
+        };
         return;
       }
-
     });
   }, [pageIndexForTime, drill?.audioOffsetSeconds, sourcePath, loadBuffer]);
 
-  const duration = pageTimes.length ? Math.max(pageTimes[pageTimes.length - 1], 0) : 0;
+  const duration = pageTimes.length
+    ? Math.max(pageTimes[pageTimes.length - 1], 0)
+    : 0;
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -531,7 +682,11 @@ export default function App() {
       // The drill timeline, not the raw audio-file length, decides where the
       // animation ends. If the audio ends first, continue the drill silently.
       standaloneAudioStartedRef.current = false;
-      if (!syncConnectedRef.current && duration > 0 && playheadRef.current >= duration - 0.02) {
+      if (
+        !syncConnectedRef.current &&
+        duration > 0 &&
+        playheadRef.current >= duration - 0.02
+      ) {
         playingRef.current = false;
         setPlaying(false);
         playheadRef.current = duration;
@@ -574,7 +729,8 @@ export default function App() {
         }
       } else if (playingRef.current) {
         const anchor = standaloneAnchorRef.current;
-        desiredTime = anchor.position + Math.max(0, now - anchor.startedAt) / 1000;
+        desiredTime =
+          anchor.position + Math.max(0, now - anchor.startedAt) / 1000;
         advancing = true;
 
         const audio = audioRef.current;
@@ -583,7 +739,9 @@ export default function App() {
           if (sourceTime >= 0) {
             standaloneAudioStartedRef.current = true;
             audio.currentTime = sourceTime;
-            void audio.play().catch(() => { standaloneAudioStartedRef.current = false; });
+            void audio.play().catch(() => {
+              standaloneAudioStartedRef.current = false;
+            });
           }
         }
       }
@@ -611,10 +769,16 @@ export default function App() {
         visualTime = desiredTime;
       }
 
-      if (duration > 0) visualTime = THREE.MathUtils.clamp(visualTime, 0, duration);
+      if (duration > 0)
+        visualTime = THREE.MathUtils.clamp(visualTime, 0, duration);
       else visualTime = Math.max(0, visualTime);
 
-      if (!syncConnectedRef.current && playingRef.current && duration > 0 && visualTime >= duration - 0.0005) {
+      if (
+        !syncConnectedRef.current &&
+        playingRef.current &&
+        duration > 0 &&
+        visualTime >= duration - 0.0005
+      ) {
         visualTime = duration;
         playingRef.current = false;
         standaloneAudioStartedRef.current = false;
@@ -627,12 +791,19 @@ export default function App() {
       // Keep React/UI work out of the 3D render path. Large or OM-synced drills
       // only need a 5 Hz sidebar refresh; the marcher animation still reads the
       // ref every display frame and stays smooth.
-      const uiInterval = syncConnectedRef.current || (drill?.marchers.length ?? 0) > 160 ? 200 : 100;
+      const uiInterval =
+        syncConnectedRef.current || (drill?.marchers.length ?? 0) > 160
+          ? 200
+          : 100;
       if (now - lastUiUpdate >= uiInterval) {
         lastUiUpdate = now;
-        setPlayhead((current) => Math.abs(current - visualTime) < 0.015 ? current : visualTime);
+        setPlayhead((current) =>
+          Math.abs(current - visualTime) < 0.015 ? current : visualTime,
+        );
         const nextPageIndex = pageIndexForTime(visualTime);
-        setPageIndex((current) => current === nextPageIndex ? current : nextPageIndex);
+        setPageIndex((current) =>
+          current === nextPageIndex ? current : nextPageIndex,
+        );
       }
 
       frame = requestAnimationFrame(tick);
@@ -640,56 +811,233 @@ export default function App() {
 
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [duration, pageIndexForTime, audioUrl, drill?.audioOffsetSeconds, drill?.marchers.length]);
+  }, [
+    duration,
+    pageIndexForTime,
+    audioUrl,
+    drill?.audioOffsetSeconds,
+    drill?.marchers.length,
+  ]);
 
-
-
-  return <div className="app">
-    <header>
-      <div className="brand"><img src={logoUrl} alt="March3D" className="brand-logo" /><div><strong>March3D</strong><span className="subtitle">OpenMarch 3D Viewer · v0.3.32</span></div></div>
-      <button className="button" onClick={openDots}>Open .dots</button>
-      <input id="dots-input" type="file" accept=".dots,.sqlite" hidden onChange={e => openFile(e.target.files?.[0])} />
-      <button className="button secondary" onClick={chooseAudio}>Audio</button>
-      <input id="audio-input" type="file" accept="audio/*" hidden onChange={e => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        if (externalAudio?.url) URL.revokeObjectURL(externalAudio.url);
-        setExternalAudio({ name: file.name, url: URL.createObjectURL(file) });
-      }} />
-      <button className="play-button" disabled={!audioUrl || syncConnected} onClick={() => void togglePlayback()}>{syncConnected ? "OM Sync" : (playing ? "Pause" : "Play")}</button>
-      {drill && <div className="source">{drill.sourceName}</div>}
-    </header>
-    <main>
-      <section className="viewer">
-        {drill && drill.pages.length >= 2 && <PlaybackBanner drill={drill} pageTimes={pageTimes} playheadRef={playheadRef} duration={duration} />}
-        {drill && page ? <Scene key={drill.sourceName} drill={drill} labels={labels} pageTimes={pageTimes} playheadRef={playheadRef} resetToken={`${sourcePath ?? drill.sourceName}:${loadVersion}`} /> :
-          <div className="empty"><h1>Open an OpenMarch drill</h1><p>Choose a <b>.dots</b> file to load its field, marchers, sections, sets, and embedded audio.</p><button className="button" onClick={openDots}>Choose .dots</button></div>}
-      </section>
-      <aside>
-        <h2>Drill</h2>
-        {drill ? <>
-          <div className="stat"><span>Field</span><b>{drill.field.name}</b></div>
-          <div className="stat"><span>Marchers</span><b>{drill.marchers.length}</b></div>
-          <div className="stat"><span>Sets</span><b>{drill.pages.length}</b></div>
-          <div className="stat"><span>Sections</span><b>{sections.length}</b></div>
-          <div className="sync-status"><span className={syncConnected ? "dot online" : "dot"}></span>{syncConnected ? "OpenMarch connected" : "Standalone mode"}</div>
-          <hr/>
-          <label className="check"><input type="checkbox" checked={labels} onChange={e => setLabels(e.target.checked)} /> Labels</label>
-          <h3>Playback</h3>
-          <div className="play-row"><button onClick={() => seekToPage(pageIndex - 1)} disabled={pageIndex === 0}>◀</button><button className="big-play" disabled={!audioUrl || syncConnected} onClick={() => void togglePlayback()}>{syncConnected ? "OM" : (playing ? "❚❚" : "▶")}</button><button onClick={() => seekToPage(pageIndex + 1)} disabled={pageIndex === drill.pages.length - 1}>▶</button></div>
-          <input className="range" type="range" min="0" max={Math.max(0, duration)} step="0.01" value={Math.min(playhead, duration || 0)} onChange={e => { const time = +e.target.value; playheadRef.current = time; syncAnchorRef.current = { position: time, receivedAt: performance.now() }; setPlayhead(time); setPageIndex(pageIndexForTime(time)); standaloneAnchorRef.current = { position: time, startedAt: performance.now() }; if (audioRef.current && !syncConnected) audioRef.current.currentTime = Math.max(0, time - (drill?.audioOffsetSeconds ?? 0)); }} />
-          <div className="time"><span>Set {drill.pages[pageIndex]?.displayNumber ?? pageIndex}</span><span>{Math.floor(playhead / 60)}:{String(Math.floor(playhead % 60)).padStart(2, "0")}</span></div>
-          <h3>Set {drill.pages[pageIndex]?.displayNumber ?? pageIndex}</h3>
-          <input className="range" type="range" min="0" max={Math.max(0, drill.pages.length - 1)} value={pageIndex} onChange={e => seekToPage(+e.target.value)} />
-          <div className="setnav"><button disabled={pageIndex === 0} onClick={() => seekToPage(pageIndex - 1)}>Previous</button><button disabled={pageIndex === drill.pages.length - 1} onClick={() => seekToPage(pageIndex + 1)}>Next</button></div>
-          <p className="hint">Mouse: orbit · Wheel: zoom · Right mouse: pan</p>
-          <div className="audio-info"><b>Audio</b><span>{externalAudio?.name ?? drill.audio?.nickname ?? drill.audio?.path?.split(/[\\/]/).pop() ?? "No audio loaded"}</span></div>
-          <h3>Sections</h3>
-          <div className="sections">{sections.map(s => <span key={s}>{s}</span>)}</div>
-        </> : <p className="hint">No drill loaded.</p>}
-        {error && <div className="error">{error}</div>}
-      </aside>
-    </main>
-    {audioUrl && <audio ref={audioRef} src={audioUrl} preload="auto" />}
-  </div>;
+  return (
+    <div className="app">
+      <header>
+        <div className="brand">
+          <img src={logoUrl} alt="March3D" className="brand-logo" />
+          <div>
+            <strong>March3D</strong>
+            <span className="subtitle">OpenMarch 3D Viewer · v0.3.33</span>
+          </div>
+        </div>
+        <button className="button" onClick={openDots}>
+          Open .dots
+        </button>
+        <input
+          id="dots-input"
+          type="file"
+          accept=".dots,.sqlite"
+          hidden
+          onChange={(e) => openFile(e.target.files?.[0])}
+        />
+        <button className="button secondary" onClick={chooseAudio}>
+          Audio
+        </button>
+        <input
+          id="audio-input"
+          type="file"
+          accept="audio/*"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            if (externalAudio?.url) URL.revokeObjectURL(externalAudio.url);
+            setExternalAudio({
+              name: file.name,
+              url: URL.createObjectURL(file),
+            });
+          }}
+        />
+        <button
+          className="play-button"
+          disabled={!audioUrl || syncConnected}
+          onClick={() => void togglePlayback()}
+        >
+          {syncConnected ? "OM Sync" : playing ? "Pause" : "Play"}
+        </button>
+        {drill && <div className="source">{drill.sourceName}</div>}
+      </header>
+      <main>
+        <section className="viewer">
+          {drill && drill.pages.length >= 2 && (
+            <PlaybackBanner
+              drill={drill}
+              pageTimes={pageTimes}
+              playheadRef={playheadRef}
+              duration={duration}
+            />
+          )}
+          {drill && page ? (
+            <Scene
+              key={drill.sourceName}
+              drill={drill}
+              labels={labels}
+              pageTimes={pageTimes}
+              playheadRef={playheadRef}
+              resetToken={`${sourcePath ?? drill.sourceName}:${loadVersion}`}
+            />
+          ) : (
+            <div className="empty">
+              <h1>Open an OpenMarch drill</h1>
+              <p>
+                Choose a <b>.dots</b> file to load its field, marchers,
+                sections, sets, and embedded audio.
+              </p>
+              <button className="button" onClick={openDots}>
+                Choose .dots
+              </button>
+            </div>
+          )}
+        </section>
+        <aside>
+          <h2>Drill</h2>
+          {drill ? (
+            <>
+              <div className="stat">
+                <span>Field</span>
+                <b>{drill.field.name}</b>
+              </div>
+              <div className="stat">
+                <span>Marchers</span>
+                <b>{drill.marchers.length}</b>
+              </div>
+              <div className="stat">
+                <span>Sets</span>
+                <b>{drill.pages.length}</b>
+              </div>
+              <div className="stat">
+                <span>Sections</span>
+                <b>{sections.length}</b>
+              </div>
+              <div className="sync-status">
+                <span className={syncConnected ? "dot online" : "dot"}></span>
+                {syncConnected ? "OpenMarch connected" : "Standalone mode"}
+              </div>
+              <hr />
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={labels}
+                  onChange={(e) => setLabels(e.target.checked)}
+                />{" "}
+                Labels
+              </label>
+              <h3>Playback</h3>
+              <div className="play-row">
+                <button
+                  onClick={() => seekToPage(pageIndex - 1)}
+                  disabled={pageIndex === 0}
+                >
+                  ◀
+                </button>
+                <button
+                  className="big-play"
+                  disabled={!audioUrl || syncConnected}
+                  onClick={() => void togglePlayback()}
+                >
+                  {syncConnected ? "OM" : playing ? "❚❚" : "▶"}
+                </button>
+                <button
+                  onClick={() => seekToPage(pageIndex + 1)}
+                  disabled={pageIndex === drill.pages.length - 1}
+                >
+                  ▶
+                </button>
+              </div>
+              <input
+                className="range"
+                type="range"
+                min="0"
+                max={Math.max(0, duration)}
+                step="0.01"
+                value={Math.min(playhead, duration || 0)}
+                onChange={(e) => {
+                  const time = +e.target.value;
+                  playheadRef.current = time;
+                  syncAnchorRef.current = {
+                    position: time,
+                    receivedAt: performance.now(),
+                  };
+                  setPlayhead(time);
+                  setPageIndex(pageIndexForTime(time));
+                  standaloneAnchorRef.current = {
+                    position: time,
+                    startedAt: performance.now(),
+                  };
+                  if (audioRef.current && !syncConnected)
+                    audioRef.current.currentTime = Math.max(
+                      0,
+                      time - (drill?.audioOffsetSeconds ?? 0),
+                    );
+                }}
+              />
+              <div className="time">
+                <span>
+                  Set {drill.pages[pageIndex]?.displayNumber ?? pageIndex}
+                </span>
+                <span>
+                  {Math.floor(playhead / 60)}:
+                  {String(Math.floor(playhead % 60)).padStart(2, "0")}
+                </span>
+              </div>
+              <h3>Set {drill.pages[pageIndex]?.displayNumber ?? pageIndex}</h3>
+              <input
+                className="range"
+                type="range"
+                min="0"
+                max={Math.max(0, drill.pages.length - 1)}
+                value={pageIndex}
+                onChange={(e) => seekToPage(+e.target.value)}
+              />
+              <div className="setnav">
+                <button
+                  disabled={pageIndex === 0}
+                  onClick={() => seekToPage(pageIndex - 1)}
+                >
+                  Previous
+                </button>
+                <button
+                  disabled={pageIndex === drill.pages.length - 1}
+                  onClick={() => seekToPage(pageIndex + 1)}
+                >
+                  Next
+                </button>
+              </div>
+              <p className="hint">
+                Mouse: orbit · Wheel: zoom · Right mouse: pan
+              </p>
+              <div className="audio-info">
+                <b>Audio</b>
+                <span>
+                  {externalAudio?.name ??
+                    drill.audio?.nickname ??
+                    drill.audio?.path?.split(/[\\/]/).pop() ??
+                    "No audio loaded"}
+                </span>
+              </div>
+              <h3>Sections</h3>
+              <div className="sections">
+                {sections.map((s) => (
+                  <span key={s}>{s}</span>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="hint">No drill loaded.</p>
+          )}
+          {error && <div className="error">{error}</div>}
+        </aside>
+      </main>
+      {audioUrl && <audio ref={audioRef} src={audioUrl} preload="auto" />}
+    </div>
+  );
 }
