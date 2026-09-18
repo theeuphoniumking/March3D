@@ -12,7 +12,9 @@
     "preview": "vite preview",
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win nsis --x64",
-    "pack:win": "npm run build && electron-builder --win dir --x64"
+    "pack:win": "npm run build && electron-builder --win dir --x64",
+    "dist:mac": "npm run build && electron-builder --mac dmg --universal",
+    "pack:mac": "npm run build && electron-builder --mac dir --universal"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",
@@ -53,6 +55,40 @@
       ],
       "icon": "build/icon.ico",
       "artifactName": "${productName} Setup ${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "icon": "build/icon.icns",
+      "category": "public.app-category.utilities",
+      "artifactName": "${productName}-${version}-mac.${ext}"
+    },
+    "dmg": {
+      "background": null,
+      "backgroundColor": "#ffffff",
+      "window": {
+        "width": 540,
+        "height": 380
+      },
+      "contents": [
+        {
+          "x": 410,
+          "y": 180,
+          "type": "link",
+          "path": "/Applications"
+        },
+        {
+          "x": 130,
+          "y": 180,
+          "type": "file"
+        }
+      ]
     },
     "asar": true,
     "directories": {

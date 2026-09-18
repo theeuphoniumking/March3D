@@ -54,6 +54,7 @@ For development:
 - npm
 - Windows, macOS, or Linux for development
 - Windows for building the Windows installer
+- macOS for building the macOS installer
 
 End users do **not** need Node.js or npm.
 
@@ -95,6 +96,15 @@ npm install
 npm run dist:win
 ```
 
+## Build Mac Installer
+
+To create a Mac installer:
+
+```bash
+npm install
+npm run dist:mac
+```
+
 The installer will be generated in:
 
 ```text
@@ -130,6 +140,7 @@ March3D/
 │
 ├── build/
 │   └── icon.ico
+    └── icon.icns
 │
 ├── package.json
 ├── vite.config.ts
@@ -165,6 +176,15 @@ The installer can:
 - Create a Start Menu shortcut
 - Install the OpenMarch sync plugin
 - Remove the plugin when March3D is uninstalled
+
+## Mac Installer
+
+March3D uses Electron Builder to create a MacOS DMG File.
+
+The DMG can:
+
+- Install March3D
+
 
 ## OpenMarch Plugin Location
 
